@@ -16,6 +16,7 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
+import moment from "moment";
 
 ChartJS.register(
   CategoryScale,
@@ -32,7 +33,7 @@ ChartJS.register(
 function App() {
   const [cryptos, setCryptos] = useState<Crypto[] | null>(null);
   const [selected, setSelected] = useState<Crypto | null>();
-  const [data, setdata] = useState<ChartData<"line">>();
+  const [data, setData] = useState<ChartData<"line">>();
   const [options, setOptions] = useState<ChartOptions<"line">>({
     responsive: true,
     plugins: {
@@ -63,6 +64,27 @@ function App() {
           onChange={(e) => {
             const coin = cryptos?.find((x) => x.id === e.target.value);
             setSelected(coin);
+            axios
+              .get(
+                `https://api.coingecko.com/api/v3/coins/${coin?.id}/market_chart?vs_currency=aud&days=30&interval=daily`
+              )
+              .then((response) => {
+                console.log(response.data);
+                setData({
+                  labels: response.data.prices.map((price: number[]) => {
+                    return moment.unix(price[0] / 1000).format("DD-MM");
+                  }),
+                  datasets: [
+                    {
+                      label: "Dataset 1",
+                      data: response.data.prices.map((price: number[]) => {
+                        return price[1];
+                      }),
+                      backgroundColor: "rgba(255, 99, 132, 0.5)",
+                    },
+                  ],
+                });
+              });
           }}
         >
           <option>Choose Coin</option>
@@ -80,7 +102,11 @@ function App() {
         </select>
       </div>
       {selected ? <CryptoSummary crypto={selected} /> : null}
-      {data ? <Line options={options} data={data} /> : null}
+      {data ? (
+        <div style={{ width: "600px" }}>
+          <Line options={options} data={data} />
+        </div>
+      ) : null}
     </>
   );
 }
