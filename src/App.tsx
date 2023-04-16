@@ -33,12 +33,13 @@ ChartJS.register(
 function App() {
   const [cryptos, setCryptos] = useState<Crypto[] | null>(null);
   const [selected, setSelected] = useState<Crypto | null>();
+  const [range, setRange] = useState<number>(30);
   const [data, setData] = useState<ChartData<"line">>();
   const [options, setOptions] = useState<ChartOptions<"line">>({
     responsive: true,
     plugins: {
       legend: {
-        position: "top" as const,
+        display: false,
       },
       title: {
         display: true,
@@ -57,6 +58,51 @@ function App() {
   }, []);
   // console.log(cryptos);
 
+  useEffect(() => {
+    if (!selected) return;
+    axios
+      .get(
+        `https://api.coingecko.com/api/v3/coins/${
+          selected?.id
+        }/market_chart?vs_currency=aud&days=${range}&${
+          range === 1 ? "interval=hourly" : "interval=daily"
+        }`
+      )
+      .then((response) => {
+        // console.log(response.data);
+        setData({
+          labels: response.data.prices.map((price: number[]) => {
+            return moment
+              .unix(price[0] / 1000)
+              .format(range === 1 ? "HH-MM" : "DD-MM");
+          }),
+          datasets: [
+            {
+              label: "Dataset 1",
+              data: response.data.prices.map((price: number[]) => {
+                return price[1];
+              }),
+              backgroundColor: "rgba(255, 99, 132, 0.5)",
+            },
+          ],
+        });
+        setOptions({
+          responsive: true,
+          plugins: {
+            legend: {
+              display: false,
+            },
+            title: {
+              display: true,
+              text: `${selected?.name} Price Over Last ${range} ${
+                range === 1 ? "Day." : "Days"
+              }`,
+            },
+          },
+        });
+      });
+  }, [selected, range]);
+
   return (
     <>
       <div className='App'>
@@ -64,27 +110,6 @@ function App() {
           onChange={(e) => {
             const coin = cryptos?.find((x) => x.id === e.target.value);
             setSelected(coin);
-            axios
-              .get(
-                `https://api.coingecko.com/api/v3/coins/${coin?.id}/market_chart?vs_currency=aud&days=30&interval=daily`
-              )
-              .then((response) => {
-                console.log(response.data);
-                setData({
-                  labels: response.data.prices.map((price: number[]) => {
-                    return moment.unix(price[0] / 1000).format("DD-MM");
-                  }),
-                  datasets: [
-                    {
-                      label: "Dataset 1",
-                      data: response.data.prices.map((price: number[]) => {
-                        return price[1];
-                      }),
-                      backgroundColor: "rgba(255, 99, 132, 0.5)",
-                    },
-                  ],
-                });
-              });
           }}
         >
           <option>Choose Coin</option>
@@ -99,6 +124,15 @@ function App() {
                 // return ;
               })
             : null}
+        </select>
+        <select
+          onChange={(e) => {
+            setRange(parseInt(e.target.value));
+          }}
+        >
+          <option value={30}>30 Days</option>
+          <option value={7}>7 Days</option>
+          <option value={1}>24 Hours</option>
         </select>
       </div>
       {selected ? <CryptoSummary crypto={selected} /> : null}
